@@ -7,21 +7,9 @@ uses
 
 type
   //------------------------------------------------------------
-  TEnvDict = TDictionary<string, string>;
-  TEnvironment = class
-  private
-    env: TEnvDict;
-  public
-    procedure Add(Key, Value: string);overload;
-    procedure Add(EnvDict: TEnvDict);overload;
-    function ToEnvironmentBlock(): string;
-    constructor Create();
-    destructor Destroy; override;
-  end;
-  //------------------------------------------------------------
   TExeParam = record
     cmd, param, dir, fileStd, fileError: string;
-    env: AnsiString;
+    env: string;
     cnt: Integer;
   end;
   //------------------------------------------------------------
@@ -34,6 +22,7 @@ type
     protected procedure Execute(); override;
     procedure TerminatedSet; override;
     procedure SendMes(msg: String);
+    function setEnv(const Strings: string): AnsiString;
   public
     constructor Create(MesBox: Boolean; HideWindow: Boolean; StartParm, TermParm, StopParm: TExeParam);
     destructor Destroy; override;
@@ -42,90 +31,8 @@ type
 
 implementation
 
-uses uTools, System.SysUtils, uFormMain, Vcl.Dialogs, System.UITypes, uService;
+uses uTools, System.SysUtils, uFormMain, Vcl.Dialogs, System.UITypes, uService, System.RegularExpressions;
 
-//----------------------------------------------------------------------------------------------------------------------
-// TEnvironment
-//----------------------------------------------------------------------------------------------------------------------
-constructor TEnvironment.Create;
-var
-  s: LPWSTR;
-  key, val: string;
-  c0: Byte;
-  i: UInt32;
-  keyValSwitch: Boolean;
-begin
-  inherited Create;
-  env := TEnvDict.Create();
-  key := '';
-  val := '';
-  c0 := 0;
-  i := 0;
-  keyValSwitch := False;
-  s := GetEnvironmentStrings;
-  while c0<2 do
-  begin
-    if s[i]=#0 then
-    begin
-      Inc(c0);
-      if key<>'' then
-        env.Add(key, val);
-      keyValSwitch := False;
-      key := '';
-      val := '';
-    end
-    else
-    begin
-      c0 := 0;
-      if s[i]='=' then
-      begin
-        keyValSwitch := True;
-      end
-      else
-      begin
-        case keyValSwitch of
-        False:
-          key := key + s[i];
-        True:
-          val := val + s[i];
-        end;
-      end;
-    end;
-    inc(i);
-  end;
-end;
-
-destructor TEnvironment.Destroy;
-begin
-  env.Free;
-  inherited Destroy;
-end;
-
-procedure TEnvironment.Add(Key, Value: string);
-var v: string;
-begin
-  if env.TryGetValue(Key, v) then
-    Value := Value + ';' + v;
-  env.AddOrSetValue(Key, Value);
-end;
-
-procedure TEnvironment.Add(EnvDict: TEnvDict);
-var key: string;
-begin
-  for key in EnvDict.Keys do
-    Add(key, EnvDict[key]);
-end;
-
-function TEnvironment.ToEnvironmentBlock: string;
-var key: string;
-begin
-  Result := '';
-  for key in env.Keys do
-    Result := Result + key +'='+ env[key] + #0;
-  if Length(Result)=0 then
-    Result := #0;
-  Result := Result + #0;
-end;
 
 //----------------------------------------------------------------------------------------------------------------------
 // TExecuter
@@ -150,12 +57,48 @@ begin
   inherited Destroy;
 end;
 
+function TExecuter.setEnv(const Strings: string): AnsiString;
+type
+  Win1251String = type AnsiString(1251);
+var
+  sEnv, se: LPWSTR;
+  ss1, ss2: TStrings;
+  s: string;
+  i: Integer;
+begin
+  Result := '';
+  if Strings='' then Exit;
+  sEnv := GetEnvironmentStrings;
+  ss1 := TStringList.Create();
+  ss2 := TStringList.Create();
+  se := sEnv;
+  try
+    while se[0]<>#0 do begin
+      s := se;
+      ss1.Add(s);
+      se := @se[Length(s)+1];
+    end;
+    ss2.Text := Strings;
+    for i:=0 to ss2.Count-1 do begin
+      s := ss2.KeyNames[i];
+      //ss1.Values[s] := Tools.iff<string>(ss1.Values[s]<>'', ss1.Values[s]+';', '')+ss2.Values[s];
+      ss1.Values[s] := ss1.Values[s] + Tools.iff<string>(ss1.Values[s]<>'', ss1.Values[s]+';', '') + ss2.Values[s];
+    end;
+    Result := Win1251String( TRegEx.Replace(ss1.Text, '(?si)[\r\n]+', #0) )+#0;
+  finally
+    FreeEnvironmentStrings(sEnv);
+    FreeAndNil(ss1);
+    FreeAndNil(ss2);
+  end;
+end;
+
 procedure TExecuter.Execute;
 var
   StartInfo: TStartupInfo;
   hStdFile, hErrorFile: THandle;
   fileSecAttr: TSecurityAttributes;
   startCnt: UInt16;
+  env: AnsiString;
 begin
   FreeOnTerminate := True;
   //--------------------------
@@ -202,11 +145,12 @@ begin
 
     FillChar(ProcInfo, SizeOf(ProcInfo), 0);
 
+    env := setEnv(startP.env);
     if CreateProcess(
       Tools.iff<LPCWSTR>(  startP.cmd='', nil, LPCWSTR(startP.cmd)),
       Tools.iff<LPWSTR >(startP.param='', nil, LPWSTR(startP.param)),
       nil, nil, True, Tools.iff<DWORD>(hideWin, CREATE_NO_WINDOW, 0),
-      Tools.iff<PAnsiChar>(startP.env='', nil, PAnsiChar(startP.env)),
+      Tools.iff<PAnsiChar>(env='', nil, PAnsiChar(env)),
       Tools.iff<LPCWSTR>(  startP.dir='', nil, LPCWSTR(startP.dir)),
       StartInfo, ProcInfo) then
     begin
@@ -275,11 +219,12 @@ begin
 
     FillChar(ProcInfo, SizeOf(ProcInfo), 0);
 
+    env := setEnv(stopP.env);
     if CreateProcess(
       Tools.iff<LPCWSTR>(  stopP.cmd='', nil, LPCWSTR(stopP.cmd)),
       Tools.iff<LPWSTR >(stopP.param='', nil, LPWSTR(stopP.param)),
       nil, nil, True, Tools.iff<DWORD>(hideWin, CREATE_NO_WINDOW, 0),
-      Tools.iff<PAnsiChar>(stopP.env='', nil, PAnsiChar(stopP.env)),
+      Tools.iff<PAnsiChar>(env='', nil, PAnsiChar(env)),
       Tools.iff<LPCWSTR>(  stopP.dir='', nil, LPCWSTR(stopP.dir)),
       StartInfo, ProcInfo) then begin
       // Ждем завершения инициализации.
@@ -338,6 +283,7 @@ begin
       var hStdFile, hErrorFile: THandle;
       var StartInfo: TStartupInfo;
       var fileSecAttr: TSecurityAttributes;
+      var env: AnsiString;
       hStdFile   := 0;
       hErrorFile := 0;
       fileSecAttr.nLength := sizeof(fileSecAttr);
@@ -369,11 +315,12 @@ begin
 
       FillChar(ProcInfo, SizeOf(ProcInfo), 0);
 
+      env := setEnv(termP.env);
       if CreateProcess(
         Tools.iff<LPCWSTR>(  termP.cmd='', nil, LPCWSTR(termP.cmd)),
         Tools.iff<LPWSTR >(termP.param='', nil, LPWSTR(termP.param)),
         nil, nil, True, Tools.iff<DWORD>(hideWin, CREATE_NO_WINDOW, 0),
-        Tools.iff<PAnsiChar>(termP.env='', nil, PAnsiChar(termP.env)),
+        Tools.iff<PAnsiChar>(env='', nil, PAnsiChar(env)),
         Tools.iff<LPCWSTR>(  termP.dir='', nil, LPCWSTR(termP.dir)),
         StartInfo, ProcInfo) then begin
         // Ждем завершения инициализации.

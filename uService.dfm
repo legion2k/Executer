@@ -7,5 +7,4 @@ object fService: TfService
   OnStop = ServiceStop
   Height = 325
   Width = 639
-  PixelsPerInch = 96
 end

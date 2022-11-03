@@ -62,7 +62,6 @@ end;
 procedure TfService.ServiceStart(Sender: TService; var Started: Boolean);
 var ini : TIniFile;
   StartP, TermP, StopP: TExeParam;
-  env: TEnvironment;
   key, val: string;
   s: TStringList;
   i: Integer;
@@ -102,37 +101,19 @@ begin
 
         s := TStringList.Create();
         try
-          for var grp in [GRUOP_ENV_START, GRUOP_ENV_TERM, GRUOP_ENV_STOP] do
-          begin
-            ini.ReadSection(grp, s);
-            i := s.Count;
-            if i>0 then
-            begin
-              env := TEnvironment.Create();
-              try
-                while i>0 do
-                begin
-                  dec(i);
-                  key := s.Strings[i];
-                  val := ini.ReadString(grp, key, '').Trim;
-                  key := key.Trim;
-                  if (key<>'')and(val<>'') then
-                    env.Add(key,val);
-                end;
-              finally
-                if grp = GRUOP_ENV_START then
-                  StartP.env := env.ToEnvironmentBlock
-                else if grp = GRUOP_ENV_TERM then
-                  TermP.env := env.ToEnvironmentBlock
-                else
-                  StopP.env := env.ToEnvironmentBlock;
-                FreeAndNil(env);
-              end;
-            end;
-          end;
+          s.Clear;
+          ini.ReadSection(GRUOP_ENV_START, s);
+          StartP.env := s.Text;
+          s.Clear;
+          ini.ReadSection(GRUOP_ENV_TERM, s);
+          StartP.env := s.Text;
+          s.Clear;
+          ini.ReadSection(GRUOP_ENV_STOP, s);
+          StartP.env := s.Text;
         finally
           FreeAndNil(s);
         end;
+
       except
         on e: Exception do
         begin
@@ -157,7 +138,6 @@ begin
         LogMessage(format('Ошибка при создание процесса: %s',[e.Message]), EVENTLOG_ERROR_TYPE);
       end;
     end;
-    FreeAndNil(env);
   end;
   if Started then
     //LogMessage('Запуск цикла', EVENTLOG_SUCCESS);

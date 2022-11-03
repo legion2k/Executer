@@ -1,2 +1,13 @@
-
 *.dcu
+.svn
+__recovery
+__history
+*.*/__recovery
+*.*/__history
+*/__recovery
+*/__history
+graph
+*.identcache
+*.dproj.local
+*/Debug
+*.rsm

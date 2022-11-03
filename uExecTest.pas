@@ -103,13 +103,15 @@ begin
 end;
 
 procedure TfTestExec.BtnRunClick(Sender: TObject);
-var env: TEnvironment;
-    StartP, TermP, StopP: TExeParam;
+var StartP, TermP, StopP: TExeParam;
     i: UInt16;
     key, val: string;
+    env: TStrings;
 begin
-  if exec=nil then
-  begin
+  if exec=nil then begin
+    env := TStringList.Create;
+    try
+
     BtnRun.Enabled := False;
     //-----------------------
     StartP.cmd       := Edit_Cmd.Text;
@@ -118,25 +120,14 @@ begin
     StartP.fileStd   := Edit_StdOut.Text;
     StartP.fileError := Edit_StdError.Text;
     StartP.cnt       := Edit_RestartCount.ValueInt;
-    StartP.env       := '';
-    i := Editor_Env.RowCount;
-    if i>0 then
-    begin
-      env := TEnvironment.Create;
-      try
-        while i>0 do
-        begin
-          dec(i);
-          key := Editor_Env.Keys[i].Trim();
-          val := Editor_Env.Values[key].Trim();
-          if (key<>'')and(val<>'') then
-            env.Add(key, val);
-        end;
-      finally
-        StartP.env := env.ToEnvironmentBlock;
-        FreeAndNil(env);
-      end;
+    env.Clear;
+    for i:=1 to Editor_Env.RowCount-1 do begin
+      key := Editor_Env.Keys[i].Trim();
+      val := Editor_Env.Values[key].Trim();
+      if (key<>'')and(val<>'') then
+        env.Values[key] := val;
     end;
+    StartP.env := env.Text;
     //-----------------------
     TermP.cmd       := Edit_CmdT.Text;
     TermP.param     := Edit_ParamT.Text;
@@ -144,25 +135,14 @@ begin
     TermP.fileStd   := Edit_StdOutT.Text;
     TermP.fileError := Edit_StdErrorT.Text;
     TermP.cnt       := Edit_TimeoutT.ValueInt;
-    TermP.env       := '';
-    i := Editor_EnvT.RowCount;
-    if i>0 then
-    begin
-      env := TEnvironment.Create;
-      try
-        while i>0 do
-        begin
-          dec(i);
-          key := Editor_EnvT.Keys[i].Trim();
-          val := Editor_EnvT.Values[key].Trim();
-          if (key<>'')and(val<>'') then
-            env.Add(key, val);
-        end;
-      finally
-        TermP.env := env.ToEnvironmentBlock;
-        FreeAndNil(env);
-      end;
+    env.Clear;
+    for i:=1 to Editor_EnvT.RowCount-1 do begin
+        key := Editor_EnvT.Keys[i].Trim();
+        val := Editor_EnvT.Values[key].Trim();
+        if (key<>'')and(val<>'') then
+        env.Values[key] := val;
     end;
+    TermP.env := env.Text;
     //-----------------------
     StopP.cmd       := Edit_CmdS.Text;
     StopP.param     := Edit_ParamS.Text;
@@ -171,32 +151,23 @@ begin
     StopP.fileError := Edit_StdErrorS.Text;
     StopP.cnt       := Edit_TimeoutS.ValueInt;
     StopP.env       := '';
-    i := Editor_EnvS.RowCount;
-    if i>0 then
-    begin
-      env := TEnvironment.Create;
-      try
-        while i>0 do
-        begin
-          dec(i);
-          key := Editor_EnvS.Keys[i].Trim();
-          val := Editor_EnvS.Values[key].Trim();
-          if (key<>'')and(val<>'') then
-            env.Add(key, val);
-        end;
-      finally
-        StopP.env := env.ToEnvironmentBlock;
-        FreeAndNil(env);
-      end;
+    env.Clear;
+    for i:=1 to Editor_EnvS.RowCount-1 do begin
+      key := Editor_EnvS.Keys[i].Trim();
+      val := Editor_EnvS.Values[key].Trim();
+      if (key<>'')and(val<>'') then
+        env.Values[key] := val;
     end;
+    StopP.env := env.Text;
     //-----------------------
     exec := TExecuter.Create( True, CheckBox_HideWin.Checked, StartP, TermP, StopP );
     exec.OnTerminate := Self.OnTerminate;
     exec.Start();
     BtnTerminate.Enabled := True;
-  end
-  else
-  begin
+    finally
+      FreeAndNil(env);
+    end;
+  end else begin
     MessageDlg('Уже запущен',TMsgDlgType.mtWarning, [TMsgDlgBtn.mbOK], 0);
   end;
 end;

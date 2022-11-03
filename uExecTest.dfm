@@ -7,7 +7,6 @@ object fTestExec: TfTestExec
   Constraints.MinHeight = 400
   Constraints.MinWidth = 477
   TabOrder = 0
-  PixelsPerInch = 96
   object Panel: TPanel
     Left = 0
     Top = 504
@@ -84,7 +83,6 @@ object fTestExec: TfTestExec
       Images = dmImages.vImageList
       TabOrder = 2
       OnClick = Btn_FileOpenClick
-      ExplicitLeft = 589
     end
     object Btn_FileSave: TBitBtn
       AlignWithMargins = True
@@ -103,8 +101,6 @@ object fTestExec: TfTestExec
       Images = dmImages.vImageList
       TabOrder = 3
       OnClick = Btn_FileSaveClick
-      ExplicitLeft = 569
-      ExplicitTop = 13
     end
     object BtnClear: TBitBtn
       AlignWithMargins = True
